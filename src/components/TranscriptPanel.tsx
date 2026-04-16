@@ -1,67 +1,13 @@
 "use client";
 
-import { useRef, useCallback } from "react";
 import ColumnHeader from "./ColumnHeader";
 import { useAppStore } from "@/lib/store";
+import { useMediaRecorder } from "@/lib/hooks/useMediaRecorder";
 
 export default function TranscriptPanel() {
-  const { isRecording, setIsRecording, transcriptChunks, settings } = useAppStore();
-  const recorderRef = useRef<MediaRecorder | null>(null);
-
-  const sendChunk = useCallback(async (blob: Blob) => {
-    const { settings: s, appendChunk } = useAppStore.getState();
-    if (!s.groqApiKey || blob.size === 0) return;
-
-    const fd = new FormData();
-    fd.append("audio", new File([blob], "audio.webm", { type: blob.type }));
-    try {
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: { "x-groq-api-key": s.groqApiKey },
-        body: fd,
-      });
-      const data = await res.json();
-      if (data.text?.trim()) appendChunk(data.text.trim());
-    } catch {
-      // network/transcription errors are non-fatal
-    }
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) sendChunk(e.data);
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        recorderRef.current = null;
-      };
-
-      recorderRef.current = recorder;
-      recorder.start(30_000); // fire dataavailable every 30s
-      setIsRecording(true);
-    } catch {
-      alert("Microphone access was denied. Please allow mic access and try again.");
-    }
-  }, [sendChunk, setIsRecording]);
-
-  const stopRecording = useCallback(() => {
-    recorderRef.current?.stop();
-    setIsRecording(false);
-  }, [setIsRecording]);
-
-  const toggleRecording = useCallback(() => {
-    if (isRecording) stopRecording();
-    else startRecording();
-  }, [isRecording, startRecording, stopRecording]);
-
+  const { isRecording, toggleRecording } = useMediaRecorder();
+  const transcriptChunks = useAppStore((s) => s.transcriptChunks);
+  const hasApiKey = useAppStore((s) => !!s.settings.groqApiKey);
   const chunkCount = transcriptChunks.length;
 
   return (
@@ -94,7 +40,7 @@ export default function TranscriptPanel() {
         <span className="text-sm text-zinc-500">
           {isRecording ? "Recording… Click to stop." : "Stopped. Click to start."}
         </span>
-        {!settings.groqApiKey && (
+        {!hasApiKey && (
           <p className="text-xs text-amber-500/80 text-center px-6">
             Set your Groq API key in Settings to enable transcription.
           </p>
