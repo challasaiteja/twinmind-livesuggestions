@@ -4,6 +4,7 @@ import ColumnHeader from "./ColumnHeader";
 import { useAppStore } from "@/lib/store";
 import { useAutoRefresh } from "@/lib/hooks/useAutoRefresh";
 import { TYPE_STYLES, TYPE_LABELS } from "@/lib/suggestionTypes";
+import { sendSuggestion } from "@/lib/hooks/useChat";
 
 export default function SuggestionsPanel() {
   const suggestionBatches = useAppStore((s) => s.suggestionBatches);
@@ -65,6 +66,7 @@ export default function SuggestionsPanel() {
               return (
                 <div
                   key={i}
+                  onClick={() => sendSuggestion(s)}
                   className={`rounded-lg border px-4 py-3 cursor-pointer hover:brightness-110 transition ${style.border} bg-zinc-900`}
                 >
                   <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5 mb-1.5 ${style.badge}`}>
