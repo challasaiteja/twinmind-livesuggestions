@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
 
   const formData = await request.formData();
   const audio = formData.get("audio") as File | null;
+  const prompt = formData.get("prompt");
   if (!audio || audio.size === 0) {
     return Response.json({ error: "Missing audio" }, { status: 400 });
   }
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
       file: audio,
       model: "whisper-large-v3",
       response_format: "json",
+      ...(typeof prompt === "string" && prompt.trim() ? { prompt } : {}),
     });
     return Response.json({ text: transcription.text });
   } catch (err: unknown) {

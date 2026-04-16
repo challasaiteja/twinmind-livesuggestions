@@ -1,11 +1,21 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useAppStore } from "@/lib/store";
 import type { Suggestion } from "@/lib/store";
 
-async function streamToStore(content: string) {
-  const { settings, addAssistantMessage, appendToLastAssistantMessage } = useAppStore.getState();
-  if (!settings.groqApiKey) return;
+// How many prior turns (excluding the current user message) to include as chat history
+const CHAT_HISTORY_TURNS = 6;
+// Safety cap on serialized history length
+const CHAT_HISTORY_CHARS = 2000;
 
+async function streamToStore(content: string) {
+  const { settings, isStreaming, setIsStreaming, addAssistantMessage, appendToLastAssistantMessage } =
+    useAppStore.getState();
+
+  if (!settings.groqApiKey) return;
+  // Prevent concurrent streams
+  if (isStreaming) return;
+
+  setIsStreaming(true);
   addAssistantMessage("");
   try {
     const res = await fetch("/api/chat", {
@@ -29,10 +39,12 @@ async function streamToStore(content: string) {
     }
   } catch {
     appendToLastAssistantMessage("_Error: failed to reach the server._");
+  } finally {
+    setIsStreaming(false);
   }
 }
 
-// Standalone — can be imported and called from SuggestionsPanel without a hook instance
+// Standalone — can be called from SuggestionsPanel without a hook instance
 export async function sendSuggestion(suggestion: Suggestion) {
   const { settings, getTranscriptText, addUserMessage } = useAppStore.getState();
   if (!settings.groqApiKey) return;
@@ -48,21 +60,30 @@ export async function sendSuggestion(suggestion: Suggestion) {
 }
 
 export function useChat() {
-  const [isStreaming, setIsStreaming] = useState(false);
+  const isStreaming = useAppStore((s) => s.isStreaming);
 
   const sendQuestion = useCallback(async (question: string) => {
-    const { settings, getTranscriptText, addUserMessage } = useAppStore.getState();
+    const { settings, getTranscriptText, addUserMessage, chatMessages } = useAppStore.getState();
     if (!question.trim() || !settings.groqApiKey) return;
 
     const transcript = getTranscriptText(settings.chatContextChars);
+
+    // Format the last few turns as chat history so the model can resolve follow-ups
+    const priorHistory = chatMessages
+      .slice(-CHAT_HISTORY_TURNS)
+      .map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`)
+      .join("\n\n");
+    const trimmed =
+      priorHistory.length > CHAT_HISTORY_CHARS ? priorHistory.slice(-CHAT_HISTORY_CHARS) : priorHistory;
+    const chatHistory = trimmed.trim() || "(no prior messages)";
+
     const filled = settings.chatPrompt
-      .replace("{transcript}", transcript)
-      .replace("{question}", question);
+      .replaceAll("{transcript}", transcript)
+      .replaceAll("{chat_history}", chatHistory)
+      .replaceAll("{question}", question);
 
     addUserMessage(question);
-    setIsStreaming(true);
     await streamToStore(filled);
-    setIsStreaming(false);
   }, []);
 
   return { isStreaming, sendQuestion };

@@ -41,9 +41,9 @@ export default function SuggestionsPanel() {
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
         {error && (
-          <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>
+          <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-3">{error}</p>
         )}
 
         {batchCount === 0 && !loading && (
@@ -52,32 +52,47 @@ export default function SuggestionsPanel() {
           </p>
         )}
 
-        {suggestionBatches.map((batch) => (
-          <div key={batch.id} className="space-y-2">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-widest">
-              {batch.timestamp.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })}
-            </p>
-            {batch.suggestions.map((s, i) => {
-              const style = TYPE_STYLES[s.type];
-              return (
-                <div
-                  key={i}
-                  onClick={() => sendSuggestion(s)}
-                  className={`rounded-lg border px-4 py-3 cursor-pointer hover:brightness-110 transition ${style.border} bg-zinc-900`}
-                >
-                  <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5 mb-1.5 ${style.badge}`}>
-                    {TYPE_LABELS[s.type]}
-                  </span>
-                  <p className="text-sm text-zinc-200 leading-snug">{s.preview}</p>
-                </div>
-              );
-            })}
-          </div>
-        ))}
+        {suggestionBatches.map((batch, batchIndex) => {
+          // batchIndex 0 = newest; batchCount - batchIndex = batch number (oldest = 1)
+          const batchNumber = batchCount - batchIndex;
+          const isNewest = batchIndex === 0;
+
+          return (
+            <div key={batch.id}>
+              {/* Suggestion cards */}
+              <div className={`space-y-2 ${!isNewest ? "opacity-60" : ""}`}>
+                {batch.suggestions.map((s, i) => {
+                  const style = TYPE_STYLES[s.type];
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => sendSuggestion(s)}
+                      className={`rounded-lg border px-4 py-3 cursor-pointer hover:brightness-110 transition ${style.border} bg-zinc-900`}
+                    >
+                      <span className={`inline-block text-[10px] font-semibold uppercase tracking-wider rounded px-1.5 py-0.5 mb-1.5 ${style.badge}`}>
+                        {TYPE_LABELS[s.type]}
+                      </span>
+                      <p className="text-sm text-zinc-200 leading-snug">{s.preview}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Batch divider */}
+              <div className="flex items-center gap-3 my-3">
+                <div className="flex-1 h-px bg-zinc-800" />
+                <span className="text-[10px] text-zinc-600 uppercase tracking-widest whitespace-nowrap">
+                  — Batch {batchNumber} · {batch.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })} —
+                </span>
+                <div className="flex-1 h-px bg-zinc-800" />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

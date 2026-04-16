@@ -66,6 +66,8 @@ interface AppState {
   clearSuggestions: () => void;
 
   // Chat
+  isStreaming: boolean;
+  setIsStreaming: (v: boolean) => void;
   chatMessages: ChatMessage[];
   addUserMessage: (content: string, suggestionType?: SuggestionType) => void;
   addAssistantMessage: (content: string) => void;
@@ -84,6 +86,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ── Recording ──────────────────────────────────────────────────────────────
   isRecording: false,
   setIsRecording: (v) => set({ isRecording: v }),
+
+  // ── Streaming ──────────────────────────────────────────────────────────────
+  isStreaming: false,
+  setIsStreaming: (v) => set({ isStreaming: v }),
 
   // ── Transcript ─────────────────────────────────────────────────────────────
   transcriptChunks: [],

@@ -2,12 +2,17 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import { useAppStore } from "@/lib/store";
 
 const AUTO_REFRESH_SEC = 30;
+// Wait for the last transcription chunk to land before final refresh
+const STOP_DELAY_MS = 2500;
 
-async function fetchSuggestions(apiKey: string, transcript: string, prompt: string) {
+// How many recent batches to surface as "previously shown" suggestions
+const PREVIOUS_BATCHES = 3;
+
+async function fetchSuggestions(apiKey: string, content: string) {
   const res = await fetch("/api/suggestions", {
     method: "POST",
     headers: { "content-type": "application/json", "x-groq-api-key": apiKey },
-    body: JSON.stringify({ transcript, prompt }),
+    body: JSON.stringify({ content }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "Request failed");
@@ -16,21 +21,36 @@ async function fetchSuggestions(apiKey: string, transcript: string, prompt: stri
 
 export function useAutoRefresh() {
   const isRecording = useAppStore((s) => s.isRecording);
+  const chunkCount = useAppStore((s) => s.transcriptChunks.length);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SEC);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasRecordingRef = useRef(false);
+  const firstChunkFiredRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const { settings, getTranscriptText, addBatch } = useAppStore.getState();
+    const { settings, getTranscriptText, addBatch, suggestionBatches } = useAppStore.getState();
     const transcript = getTranscriptText(settings.suggestionContextChars);
     if (!settings.groqApiKey || !transcript.trim()) return;
+
+    const previousList = suggestionBatches
+      .slice(0, PREVIOUS_BATCHES)
+      .flatMap((b) => b.suggestions)
+      .map((s) => `- [${s.type}] ${s.preview}`)
+      .join("\n");
+    const previousSuggestions = previousList.trim() || "(none yet)";
+
+    const content = settings.suggestionPrompt
+      .replaceAll("{transcript}", transcript)
+      .replaceAll("{previous_suggestions}", previousSuggestions);
 
     setLoading(true);
     setError(null);
     try {
-      const suggestions = await fetchSuggestions(settings.groqApiKey, transcript, settings.suggestionPrompt);
+      const suggestions = await fetchSuggestions(settings.groqApiKey, content);
       if (suggestions?.length) addBatch(suggestions);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load suggestions");
@@ -47,9 +67,12 @@ export function useAutoRefresh() {
     }, 1000);
   }, []);
 
+  // Start/stop the 30s auto-refresh cycle
   useEffect(() => {
     if (isRecording) {
-      refresh();
+      wasRecordingRef.current = true;
+      firstChunkFiredRef.current = false;
+      // Don't call refresh() immediately — wait for first chunk (see below)
       resetCountdown();
       intervalRef.current = setInterval(() => {
         refresh();
@@ -59,12 +82,29 @@ export function useAutoRefresh() {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
       setCountdown(AUTO_REFRESH_SEC);
+
+      // Trigger a final refresh when recording stops, giving the last chunk time to land
+      if (wasRecordingRef.current) {
+        if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+        stopTimerRef.current = setTimeout(refresh, STOP_DELAY_MS);
+      }
+      wasRecordingRef.current = false;
     }
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
+      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     };
   }, [isRecording, refresh, resetCountdown]);
+
+  // Fire as soon as the first transcript chunk arrives while recording
+  useEffect(() => {
+    if (isRecording && chunkCount > 0 && !firstChunkFiredRef.current) {
+      firstChunkFiredRef.current = true;
+      refresh();
+      resetCountdown();
+    }
+  }, [isRecording, chunkCount, refresh, resetCountdown]);
 
   const handleReload = useCallback(() => {
     refresh();
