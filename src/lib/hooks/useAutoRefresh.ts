@@ -30,6 +30,7 @@ export function useAutoRefresh() {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wasRecordingRef = useRef(false);
   const firstChunkFiredRef = useRef(false);
+  const chunkCountAtStartRef = useRef(0);
 
   const refresh = useCallback(async () => {
     const { settings, getTranscriptText, addBatch, suggestionBatches } = useAppStore.getState();
@@ -72,7 +73,8 @@ export function useAutoRefresh() {
     if (isRecording) {
       wasRecordingRef.current = true;
       firstChunkFiredRef.current = false;
-      // Don't call refresh() immediately — wait for first chunk (see below)
+      chunkCountAtStartRef.current = useAppStore.getState().transcriptChunks.length;
+      // Don't call refresh() immediately — wait for a NEW chunk to arrive (see below)
       resetCountdown();
       intervalRef.current = setInterval(() => {
         refresh();
@@ -97,9 +99,15 @@ export function useAutoRefresh() {
     };
   }, [isRecording, refresh, resetCountdown]);
 
-  // Fire as soon as the first transcript chunk arrives while recording
+  // Fire as soon as the first NEW transcript chunk arrives during this recording session.
+  // Comparing against chunkCountAtStart avoids refiring when starting a new session
+  // on top of an existing transcript.
   useEffect(() => {
-    if (isRecording && chunkCount > 0 && !firstChunkFiredRef.current) {
+    if (
+      isRecording &&
+      chunkCount > chunkCountAtStartRef.current &&
+      !firstChunkFiredRef.current
+    ) {
       firstChunkFiredRef.current = true;
       refresh();
       resetCountdown();

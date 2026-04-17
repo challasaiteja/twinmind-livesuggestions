@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import ColumnHeader from "./ColumnHeader";
 import { useAppStore } from "@/lib/store";
 import { useMediaRecorder } from "@/lib/hooks/useMediaRecorder";
@@ -9,6 +10,11 @@ export default function TranscriptPanel() {
   const transcriptChunks = useAppStore((s) => s.transcriptChunks);
   const hasApiKey = useAppStore((s) => !!s.settings.groqApiKey);
   const chunkCount = transcriptChunks.length;
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chunkCount]);
 
   return (
     <div className="flex flex-col h-full">
@@ -66,6 +72,7 @@ export default function TranscriptPanel() {
             </div>
           ))
         )}
+        <div ref={bottomRef} />
       </div>
     </div>
   );
