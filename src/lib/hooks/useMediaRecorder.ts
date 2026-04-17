@@ -1,9 +1,10 @@
 import { useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 
 const CHUNK_MS = 30_000;
-// How much trailing transcript to send as a Whisper prompt for continuity
 const PROMPT_TAIL_CHARS = 200;
+const TRANSCRIPTION_TOAST_ID = "transcription-error";
 
 export function useMediaRecorder() {
   const setIsRecording = useAppStore((s) => s.setIsRecording);
@@ -15,8 +16,7 @@ export function useMediaRecorder() {
   const seqRef = useRef(0);
 
   const sendChunk = useCallback(async (blob: Blob, seq: number) => {
-    const { settings, appendChunk, transcriptChunks, setTranscriptionError } =
-      useAppStore.getState();
+    const { settings, appendChunk, transcriptChunks } = useAppStore.getState();
     if (!settings.groqApiKey || blob.size === 0) return;
 
     const tail = transcriptChunks
@@ -36,11 +36,11 @@ export function useMediaRecorder() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `Transcribe failed (${res.status})`);
       if (data.text?.trim()) appendChunk(data.text.trim(), seq);
-      setTranscriptionError(null);
     } catch (err) {
-      // Non-fatal: recording continues. Surface the last error so the user
-      // isn't staring at a silent transcript wondering what happened.
-      setTranscriptionError(err instanceof Error ? err.message : "Transcription failed");
+      // Non-fatal: recording continues. Single ID dedupes back-to-back chunk failures.
+      toast.error(err instanceof Error ? err.message : "Transcription failed", {
+        id: TRANSCRIPTION_TOAST_ID,
+      });
     }
   }, []);
 
@@ -79,7 +79,7 @@ export function useMediaRecorder() {
       rotateTimerRef.current = setTimeout(rotate, CHUNK_MS);
       setIsRecording(true);
     } catch {
-      alert("Microphone access was denied. Please allow mic access and try again.");
+      toast.error("Microphone access denied. Allow mic access and try again.");
     }
   }, [sendChunk, setIsRecording]);
 

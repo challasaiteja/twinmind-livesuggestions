@@ -60,8 +60,6 @@ interface AppState {
   transcriptChunks: TranscriptChunk[];
   appendChunk: (text: string, seq: number) => void;
   clearTranscript: () => void;
-  transcriptionError: string | null;
-  setTranscriptionError: (msg: string | null) => void;
 
   // Suggestions
   suggestionBatches: SuggestionBatch[];
@@ -108,8 +106,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { transcriptChunks: next };
     }),
   clearTranscript: () => set({ transcriptChunks: [] }),
-  transcriptionError: null,
-  setTranscriptionError: (msg) => set({ transcriptionError: msg }),
 
   // ── Suggestions ────────────────────────────────────────────────────────────
   suggestionBatches: [],

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useCallback, useState } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 
 const AUTO_REFRESH_SEC = 30;
 // Wait for the last transcription chunk to land before final refresh
 const STOP_DELAY_MS = 2500;
 
-// How many recent batches to surface as "previously shown" suggestions
 const PREVIOUS_BATCHES = 3;
+const SUGGESTIONS_TOAST_ID = "suggestions-error";
 
 async function fetchSuggestions(apiKey: string, content: string) {
   const res = await fetch("/api/suggestions", {
@@ -15,7 +16,7 @@ async function fetchSuggestions(apiKey: string, content: string) {
     body: JSON.stringify({ content }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? "Request failed");
+  if (!res.ok || data.error) throw new Error(data.error ?? "Request failed");
   return data.suggestions;
 }
 
@@ -23,7 +24,6 @@ export function useAutoRefresh() {
   const isRecording = useAppStore((s) => s.isRecording);
   const chunkCount = useAppStore((s) => s.transcriptChunks.length);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(AUTO_REFRESH_SEC);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -31,8 +31,7 @@ export function useAutoRefresh() {
   const wasRecordingRef = useRef(false);
   const firstChunkFiredRef = useRef(false);
   const chunkCountAtStartRef = useRef(0);
-  // Prevent overlapping refreshes (auto-tick colliding with a manual reload, etc.)
-  const inFlightRef = useRef(false);
+  const inFlightRef = useRef(false);   // Prevent overlapping refreshes (auto-tick colliding with a manual reload, etc.)
 
   const refresh = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -53,12 +52,13 @@ export function useAutoRefresh() {
 
     inFlightRef.current = true;
     setLoading(true);
-    setError(null);
     try {
       const suggestions = await fetchSuggestions(settings.groqApiKey, content);
       if (suggestions?.length) addBatch(suggestions);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load suggestions");
+      toast.error(err instanceof Error ? err.message : "Failed to load suggestions", {
+        id: SUGGESTIONS_TOAST_ID,
+      });
     } finally {
       inFlightRef.current = false;
       setLoading(false);
@@ -79,7 +79,7 @@ export function useAutoRefresh() {
       wasRecordingRef.current = true;
       firstChunkFiredRef.current = false;
       chunkCountAtStartRef.current = useAppStore.getState().transcriptChunks.length;
-      // Don't call refresh() immediately — wait for a NEW chunk to arrive (see below)
+      // Immediate refresh when recording starts, so we have suggestions to show as chunks start coming in
       resetCountdown();
       intervalRef.current = setInterval(() => {
         refresh();
@@ -104,9 +104,7 @@ export function useAutoRefresh() {
     };
   }, [isRecording, refresh, resetCountdown]);
 
-  // Fire as soon as the first NEW transcript chunk arrives during this recording session.
-  // Comparing against chunkCountAtStart avoids refiring when starting a new session
-  // on top of an existing transcript.
+  // Trigger a refresh when a new chunk arrives
   useEffect(() => {
     if (
       isRecording &&
@@ -124,5 +122,5 @@ export function useAutoRefresh() {
     if (isRecording) resetCountdown();
   }, [refresh, isRecording, resetCountdown]);
 
-  return { loading, error, countdown, isRecording, handleReload };
+  return { loading, countdown, isRecording, handleReload };
 }

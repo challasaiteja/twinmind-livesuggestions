@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 import {
   DEFAULT_SUGGESTION_PROMPT,
@@ -15,10 +16,19 @@ interface Props {
   onClose: () => void;
 }
 
+// Groq key length 56
+const GROQ_KEY_PREFIX = "gsk_";
+const GROQ_KEY_MIN_LEN = 56;
+function isLikelyGroqKey(key: string) {
+  return key.startsWith(GROQ_KEY_PREFIX) && key.length >= GROQ_KEY_MIN_LEN;
+}
+
 export default function SettingsModal({ open, onClose }: Props) {
   const settings = useAppStore((s) => s.settings);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const [showKey, setShowKey] = useState(false);
+  const trimmedKey = settings.groqApiKey.trim();
+  const keyInvalid = trimmedKey.length > 0 && !isLikelyGroqKey(trimmedKey);
 
   const resetPrompts = useCallback(() => {
     updateSettings({
@@ -35,19 +45,26 @@ export default function SettingsModal({ open, onClose }: Props) {
     });
   }, [updateSettings]);
 
+  const handleClose = useCallback(() => {
+    if (keyInvalid) {
+      toast.error("Groq API key looks invalid — should be ~56 characters.");
+    }
+    onClose();
+  }, [keyInvalid, onClose]);
+
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl mx-4">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-zinc-900 border-b border-zinc-800">
           <h2 className="text-sm font-semibold text-zinc-100 uppercase tracking-widest">Settings</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-zinc-500 hover:text-white transition-colors"
             aria-label="Close settings"
           >
@@ -67,7 +84,8 @@ export default function SettingsModal({ open, onClose }: Props) {
                 value={settings.groqApiKey}
                 onChange={(e) => updateSettings({ groqApiKey: e.target.value })}
                 placeholder="gsk_…"
-                className="flex-1 bg-zinc-800 text-zinc-100 text-sm rounded-lg px-4 py-2.5 outline-none placeholder-zinc-600 focus:ring-1 focus:ring-zinc-600 font-mono"
+                aria-invalid={keyInvalid}
+                className="flex-1 bg-zinc-800 text-zinc-100 text-sm rounded-lg px-4 py-2.5 outline-none placeholder-zinc-600 font-mono focus:ring-1 focus:ring-zinc-600"
               />
               <button
                 onClick={() => setShowKey((v) => !v)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Toaster } from "sonner";
 import TranscriptPanel from "./TranscriptPanel";
 import SuggestionsPanel from "./SuggestionsPanel";
 import ChatPanel from "./ChatPanel";
@@ -7,6 +8,7 @@ import ChatPanel from "./ChatPanel";
 export default function ClientApp() {
   return (
     <div className="flex h-screen bg-[#111113] text-zinc-100 overflow-hidden">
+      <Toaster theme="dark" position="bottom-right" richColors duration={3000} />
       <div className="w-1/3 border-r border-zinc-800 flex flex-col overflow-hidden">
         <TranscriptPanel />
       </div>
