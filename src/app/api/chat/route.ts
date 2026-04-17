@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content }],
       stream: true,
-      max_tokens: 1024,
+      max_tokens: 1500,
     });
 
     const encoder = new TextEncoder();

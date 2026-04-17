@@ -1,12 +1,42 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import ColumnHeader from "./ColumnHeader";
 import { useAppStore } from "@/lib/store";
 import { useChat } from "@/lib/hooks/useChat";
 import { TYPE_LABELS, TYPE_STYLES } from "@/lib/suggestionTypes";
 import { exportSession } from "@/lib/export";
 import SettingsModal from "./SettingsModal";
+
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="my-2 first:mt-0 last:mb-0">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold text-zinc-100">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  ul: ({ children }) => <ul className="list-disc ml-5 my-2 space-y-1 marker:text-zinc-500">{children}</ul>,
+  ol: ({ children }) => <ol className="list-decimal ml-5 my-2 space-y-1 marker:text-zinc-500">{children}</ol>,
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  code: ({ children }) => (
+    <code className="bg-zinc-900 px-1 py-0.5 rounded text-xs font-mono">{children}</code>
+  ),
+  pre: ({ children }) => (
+    <pre className="bg-zinc-900 rounded p-2 my-2 overflow-x-auto text-xs font-mono">{children}</pre>
+  ),
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-blue-400 underline break-all"
+    >
+      {children}
+    </a>
+  ),
+  h1: ({ children }) => <h3 className="font-semibold text-zinc-100 mt-2 mb-1">{children}</h3>,
+  h2: ({ children }) => <h3 className="font-semibold text-zinc-100 mt-2 mb-1">{children}</h3>,
+  h3: ({ children }) => <h3 className="font-semibold text-zinc-100 mt-2 mb-1">{children}</h3>,
+};
 
 export default function ChatPanel() {
   const [input, setInput] = useState("");
@@ -89,7 +119,7 @@ export default function ChatPanel() {
                       {TYPE_LABELS[msg.suggestionType!]}
                     </span>
                   )}
-                  <div className="max-w-[85%] bg-blue-600/20 border border-blue-500/30 rounded-xl rounded-tr-sm px-4 py-2.5 text-sm text-zinc-100">
+                  <div className="max-w-[85%] min-w-0 bg-blue-600/20 border border-blue-500/30 rounded-xl rounded-tr-sm px-4 py-2.5 text-sm text-zinc-100 break-words whitespace-pre-wrap">
                     {msg.content}
                   </div>
                 </div>
@@ -99,10 +129,12 @@ export default function ChatPanel() {
             const isLast = msg === chatMessages[chatMessages.length - 1];
             return (
               <div key={msg.id} className="flex flex-col items-start">
-                <div className="max-w-[90%] bg-zinc-800/60 rounded-xl rounded-tl-sm px-4 py-2.5 text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">
-                  {msg.content}
+                <div className="max-w-[90%] min-w-0 bg-zinc-800/60 rounded-xl rounded-tl-sm px-4 py-2.5 text-sm text-zinc-200 leading-relaxed break-words">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {msg.content}
+                  </ReactMarkdown>
                   {isStreaming && isLast && (
-                    <span className="inline-block w-1.5 h-3.5 bg-zinc-400 ml-0.5 animate-pulse rounded-sm align-middle" />
+                    <span className="inline-block w-1.5 h-3.5 bg-zinc-400 ml-1 animate-pulse rounded-sm align-middle" />
                   )}
                 </div>
               </div>

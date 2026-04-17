@@ -37,7 +37,7 @@ export function exportSession() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `twinind-session-${filenameStamp(new Date())}.json`;
+  a.download = `twinmind-session-${filenameStamp(new Date())}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();

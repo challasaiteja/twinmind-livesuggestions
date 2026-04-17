@@ -30,7 +30,7 @@ Three-column layout (`ClientApp.tsx`) — each column is an independent agent:
 |--------|-----------|------|-----------|
 | Left | `TranscriptPanel` | `useMediaRecorder` | `/api/transcribe` |
 | Middle | `SuggestionsPanel` | `useAutoRefresh` | `/api/suggestions` |
-| Right | `ChatPanel` | `useChat` (Step 5) | `/api/chat` |
+| Right | `ChatPanel` | `useChat` | `/api/chat` (streaming) |
 
 All three read/write a single Zustand store (`src/lib/store.ts`). API routes receive the Groq API key via `x-groq-api-key` header — never hardcode it or read from env.
 
@@ -41,6 +41,8 @@ All three read/write a single Zustand store (`src/lib/store.ts`). API routes rec
 - `src/lib/suggestionTypes.ts` — `TYPE_STYLES` and `TYPE_LABELS` (badge + border classes per suggestion type); import from here, never duplicate
 - `src/lib/hooks/useMediaRecorder.ts` — MediaRecorder start/stop/chunk-send logic; exposes `{ isRecording, toggleRecording }`
 - `src/lib/hooks/useAutoRefresh.ts` — auto-refresh + countdown intervals for suggestions; exposes `{ loading, error, countdown, isRecording, handleReload }`
+- `src/lib/hooks/useChat.ts` — streams `/api/chat` into the store via `appendToLastAssistantMessage`; guards against concurrent streams with `isStreaming`; includes last `CHAT_HISTORY_TURNS` (6) turns, capped at 2000 chars
+- `src/lib/export.ts` — transcript/suggestions/chat export helpers used by `ChatPanel`
 - `src/components/ColumnHeader.tsx` — shared header for all 3 panels; accepts `title: string` and `status: React.ReactNode`
 
 ### Hydration
