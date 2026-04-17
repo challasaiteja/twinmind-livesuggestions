@@ -12,9 +12,11 @@ export function useMediaRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const rotateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stoppingRef = useRef(false);
+  const seqRef = useRef(0);
 
-  const sendChunk = useCallback(async (blob: Blob) => {
-    const { settings, appendChunk, transcriptChunks } = useAppStore.getState();
+  const sendChunk = useCallback(async (blob: Blob, seq: number) => {
+    const { settings, appendChunk, transcriptChunks, setTranscriptionError } =
+      useAppStore.getState();
     if (!settings.groqApiKey || blob.size === 0) return;
 
     const tail = transcriptChunks
@@ -31,10 +33,14 @@ export function useMediaRecorder() {
         headers: { "x-groq-api-key": settings.groqApiKey },
         body: fd,
       });
-      const data = await res.json();
-      if (data.text?.trim()) appendChunk(data.text.trim());
-    } catch {
-      // non-fatal: transcription errors don't stop the recording session
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Transcribe failed (${res.status})`);
+      if (data.text?.trim()) appendChunk(data.text.trim(), seq);
+      setTranscriptionError(null);
+    } catch (err) {
+      // Non-fatal: recording continues. Surface the last error so the user
+      // isn't staring at a silent transcript wondering what happened.
+      setTranscriptionError(err instanceof Error ? err.message : "Transcription failed");
     }
   }, []);
 
@@ -51,7 +57,7 @@ export function useMediaRecorder() {
       const makeRecorder = () => {
         const r = new MediaRecorder(stream, { mimeType });
         r.ondataavailable = (e) => {
-          if (e.data.size > 0) sendChunk(e.data);
+          if (e.data.size > 0) sendChunk(e.data, seqRef.current++);
         };
         return r;
       };

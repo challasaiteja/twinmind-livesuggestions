@@ -31,8 +31,11 @@ export function useAutoRefresh() {
   const wasRecordingRef = useRef(false);
   const firstChunkFiredRef = useRef(false);
   const chunkCountAtStartRef = useRef(0);
+  // Prevent overlapping refreshes (auto-tick colliding with a manual reload, etc.)
+  const inFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (inFlightRef.current) return;
     const { settings, getTranscriptText, addBatch, suggestionBatches } = useAppStore.getState();
     const transcript = getTranscriptText(settings.suggestionContextChars);
     if (!settings.groqApiKey || !transcript.trim()) return;
@@ -48,6 +51,7 @@ export function useAutoRefresh() {
       .replaceAll("{transcript}", transcript)
       .replaceAll("{previous_suggestions}", previousSuggestions);
 
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -56,6 +60,7 @@ export function useAutoRefresh() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load suggestions");
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, []);

@@ -26,6 +26,7 @@ export interface TranscriptChunk {
   id: string;
   timestamp: Date;
   text: string;
+  seq: number;
 }
 
 export type ChatRole = "user" | "assistant";
@@ -57,8 +58,10 @@ interface AppState {
 
   // Transcript
   transcriptChunks: TranscriptChunk[];
-  appendChunk: (text: string) => void;
+  appendChunk: (text: string, seq: number) => void;
   clearTranscript: () => void;
+  transcriptionError: string | null;
+  setTranscriptionError: (msg: string | null) => void;
 
   // Suggestions
   suggestionBatches: SuggestionBatch[];
@@ -93,14 +96,20 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ── Transcript ─────────────────────────────────────────────────────────────
   transcriptChunks: [],
-  appendChunk: (text) =>
-    set((s) => ({
-      transcriptChunks: [
-        ...s.transcriptChunks,
-        { id: crypto.randomUUID(), timestamp: new Date(), text },
-      ],
-    })),
+  appendChunk: (text, seq) =>
+    set((s) => {
+      // Insert in seq order so parallel transcription requests that finish out
+      // of order still produce a monotonically-ordered transcript.
+      const chunk = { id: crypto.randomUUID(), timestamp: new Date(), text, seq };
+      const idx = s.transcriptChunks.findIndex((c) => c.seq > seq);
+      const next = [...s.transcriptChunks];
+      if (idx === -1) next.push(chunk);
+      else next.splice(idx, 0, chunk);
+      return { transcriptChunks: next };
+    }),
   clearTranscript: () => set({ transcriptChunks: [] }),
+  transcriptionError: null,
+  setTranscriptionError: (msg) => set({ transcriptionError: msg }),
 
   // ── Suggestions ────────────────────────────────────────────────────────────
   suggestionBatches: [],
