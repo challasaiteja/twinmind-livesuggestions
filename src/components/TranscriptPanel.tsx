@@ -9,8 +9,6 @@ export default function TranscriptPanel() {
   const { isRecording, toggleRecording } = useMediaRecorder();
   const transcriptChunks = useAppStore((s) => s.transcriptChunks);
   const hasApiKey = useAppStore((s) => !!s.settings.groqApiKey);
-  const transcriptionError = useAppStore((s) => s.transcriptionError);
-  const setTranscriptionError = useAppStore((s) => s.setTranscriptionError);
   const chunkCount = transcriptChunks.length;
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -56,20 +54,6 @@ export default function TranscriptPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-3">
-        {transcriptionError && (
-          <div className="flex items-start gap-2 text-xs bg-amber-500/10 border border-amber-500/30 text-amber-300 rounded-lg px-3 py-2">
-            <span className="flex-1">
-              <span className="font-semibold">Transcription issue:</span> {transcriptionError}
-            </span>
-            <button
-              onClick={() => setTranscriptionError(null)}
-              className="text-amber-400 hover:text-amber-200 shrink-0 leading-none text-base"
-              aria-label="Dismiss error"
-            >
-              ×
-            </button>
-          </div>
-        )}
         {chunkCount === 0 ? (
           <p className="text-zinc-600 italic text-sm">
             Transcript will appear here once recording starts…

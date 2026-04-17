@@ -59,14 +59,10 @@ interface AppState {
   // Transcript
   transcriptChunks: TranscriptChunk[];
   appendChunk: (text: string, seq: number) => void;
-  clearTranscript: () => void;
-  transcriptionError: string | null;
-  setTranscriptionError: (msg: string | null) => void;
 
   // Suggestions
   suggestionBatches: SuggestionBatch[];
   addBatch: (suggestions: Suggestion[]) => void;
-  clearSuggestions: () => void;
 
   // Chat
   isStreaming: boolean;
@@ -75,7 +71,6 @@ interface AppState {
   addUserMessage: (content: string, suggestionType?: SuggestionType) => void;
   addAssistantMessage: (content: string) => void;
   appendToLastAssistantMessage: (delta: string) => void;
-  clearChat: () => void;
 
   // Settings
   settings: Settings;
@@ -107,9 +102,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       else next.splice(idx, 0, chunk);
       return { transcriptChunks: next };
     }),
-  clearTranscript: () => set({ transcriptChunks: [] }),
-  transcriptionError: null,
-  setTranscriptionError: (msg) => set({ transcriptionError: msg }),
 
   // ── Suggestions ────────────────────────────────────────────────────────────
   suggestionBatches: [],
@@ -120,7 +112,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...s.suggestionBatches,
       ],
     })),
-  clearSuggestions: () => set({ suggestionBatches: [] }),
 
   // ── Chat ───────────────────────────────────────────────────────────────────
   chatMessages: [],
@@ -146,7 +137,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       msgs[msgs.length - 1] = { ...last, content: last.content + delta };
       return { chatMessages: msgs };
     }),
-  clearChat: () => set({ chatMessages: [] }),
 
   // ── Settings ───────────────────────────────────────────────────────────────
   settings: {

@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
+import { toApiError } from "@/lib/apiError";
 
 export async function POST(request: NextRequest) {
   const apiKey = request.headers.get("x-groq-api-key");
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     });
     return Response.json({ text: transcription.text });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Transcription failed";
-    return Response.json({ error: message }, { status: 500 });
+    const { message, status } = toApiError(err, "Transcription failed");
+    return Response.json({ error: message }, { status });
   }
 }

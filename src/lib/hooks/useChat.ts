@@ -1,10 +1,9 @@
 import { useCallback } from "react";
+import { toast } from "sonner";
 import { useAppStore } from "@/lib/store";
 import type { Suggestion } from "@/lib/store";
 
-// How many prior turns (excluding the current user message) to include as chat history
 const CHAT_HISTORY_TURNS = 6;
-// Safety cap on serialized history length
 const CHAT_HISTORY_CHARS = 2000;
 
 async function streamToStore(content: string) {
@@ -16,7 +15,6 @@ async function streamToStore(content: string) {
   if (isStreaming) return;
 
   setIsStreaming(true);
-  addAssistantMessage("");
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -25,11 +23,13 @@ async function streamToStore(content: string) {
     });
 
     if (!res.ok || !res.body) {
-      const err = await res.json().catch(() => ({ error: "Request failed" }));
-      appendToLastAssistantMessage(`_Error: ${err.error}_`);
+      const err = await res.json().catch(() => ({ error: `Chat failed (${res.status})` }));
+      toast.error(err.error ?? "Chat request failed");
       return;
     }
 
+    // Only mount the assistant bubble once we know bytes are coming
+    addAssistantMessage("");
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     while (true) {
@@ -38,7 +38,7 @@ async function streamToStore(content: string) {
       appendToLastAssistantMessage(decoder.decode(value, { stream: true }));
     }
   } catch {
-    appendToLastAssistantMessage("_Error: failed to reach the server._");
+    toast.error("Failed to reach the server.");
   } finally {
     setIsStreaming(false);
   }

@@ -1,5 +1,6 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
+import { toApiError } from "@/lib/apiError";
 
 const VALID_TYPES = new Set([
   "question",
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
     return Response.json({ suggestions });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Suggestions failed";
-    return Response.json({ error: message }, { status: 500 });
+    const { message} = toApiError(err, "Suggestions failed");
+    return Response.json({ error: message });
   }
 }

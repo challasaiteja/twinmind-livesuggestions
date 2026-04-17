@@ -8,7 +8,7 @@ import { sendSuggestion } from "@/lib/hooks/useChat";
 
 export default function SuggestionsPanel() {
   const suggestionBatches = useAppStore((s) => s.suggestionBatches);
-  const { loading, error, countdown, isRecording, handleReload } = useAutoRefresh();
+  const { loading, countdown, isRecording, handleReload } = useAutoRefresh();
   const batchCount = suggestionBatches.length;
 
   return (
@@ -42,10 +42,6 @@ export default function SuggestionsPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-        {error && (
-          <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2 mb-3">{error}</p>
-        )}
-
         {batchCount === 0 && !loading && (
           <p className="text-zinc-600 italic text-sm text-center pt-4">
             Suggestions will appear once recording starts…

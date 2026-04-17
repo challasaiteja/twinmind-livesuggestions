@@ -5,29 +5,74 @@ function filenameStamp(d: Date) {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+function formatTime(d: Date): string {
+  return d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
+function duration(start: Date, end: Date): string {
+  const diffMs = end.getTime() - start.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  const secs = Math.floor((diffMs % 60000) / 1000);
+  if (mins === 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
+}
+
 export function exportSession() {
-  const { transcriptChunks, suggestionBatches, chatMessages } = useAppStore.getState();
+  const { transcriptChunks, suggestionBatches, chatMessages } =
+    useAppStore.getState();
+
+  const sortedBatches = [...suggestionBatches].reverse();
+
+  const allDates = [
+    ...transcriptChunks.map((c) => c.timestamp),
+    ...sortedBatches.map((b) => b.timestamp),
+    ...chatMessages.map((m) => m.timestamp),
+  ].sort((a, b) => a.getTime() - b.getTime());
+
+  const startTime = allDates[0] ?? new Date();
+  const endTime = allDates[allDates.length - 1] ?? new Date();
 
   const payload = {
-    exportedAt: new Date().toISOString(),
+    session: {
+      exportedAt: new Date().toISOString(),
+      startTime: formatTime(startTime),
+      endTime: formatTime(endTime),
+      duration: duration(startTime, endTime),
+      stats: {
+        transcriptChunks: transcriptChunks.length,
+        suggestionBatches: sortedBatches.length,
+        totalSuggestions: sortedBatches.reduce(
+          (sum, b) => sum + b.suggestions.length,
+          0
+        ),
+        chatMessages: chatMessages.length,
+        suggestionsClicked: chatMessages.filter((m) => m.suggestionType).length,
+      },
+    },
+
     transcript: transcriptChunks.map((c) => ({
-      id: c.id,
-      timestamp: c.timestamp.toISOString(),
+      time: formatTime(c.timestamp),
       text: c.text,
     })),
-    suggestions: [...suggestionBatches]
-      .reverse()
-      .map((b) => ({
-        id: b.id,
-        timestamp: b.timestamp.toISOString(),
-        suggestions: b.suggestions,
+
+    suggestions: sortedBatches.map((b) => ({
+      time: formatTime(b.timestamp),
+      suggestions: b.suggestions.map((s) => ({
+        type: s.type,
+        preview: s.preview,
       })),
+    })),
+
     chat: chatMessages.map((m) => ({
-      id: m.id,
+      time: formatTime(m.timestamp),
       role: m.role,
+      ...(m.suggestionType && { triggeredBy: m.suggestionType }),
       content: m.content,
-      timestamp: m.timestamp.toISOString(),
-      ...(m.suggestionType ? { suggestionType: m.suggestionType } : {}),
     })),
   };
 
